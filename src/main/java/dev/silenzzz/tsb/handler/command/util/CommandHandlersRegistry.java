@@ -4,13 +4,9 @@ import com.google.common.collect.ImmutableMap;
 import dev.silenzzz.tsb.handler.command.cor.CommandHandler;
 import dev.silenzzz.tsb.handler.command.exception.CommandHandlerNotFoundException;
 import jakarta.annotation.PostConstruct;
-import lombok.AccessLevel;
-import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationListener;
 import org.springframework.context.annotation.Scope;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;

@@ -2,12 +2,9 @@ package dev.silenzzz.tsb.handler.command;
 
 import dev.silenzzz.tsb.handler.command.cor.CommandHandler;
 import dev.silenzzz.tsb.handler.command.util.CommandHandlerClassScanner;
-import dev.silenzzz.tsb.handler.command.util.CommandHandlersRegistry;
 import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Scope;
-import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.util.Collection;
