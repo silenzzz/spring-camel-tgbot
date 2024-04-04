@@ -3,7 +3,9 @@ package dev.silenzzz.tsb.handler.command.util;
 import dev.silenzzz.tsb.handler.command.CommandHandlerResourceUtils;
 import dev.silenzzz.tsb.handler.command.UnknownCommandHandler;
 import dev.silenzzz.tsb.handler.command.cor.CommandHandler;
+import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
 
 import java.io.File;
 import java.util.Collection;
@@ -17,11 +19,15 @@ import static org.assertj.core.api.Assertions.assertThat;
  * @see <a href="https://github.com/silenzzz">github.com/silenzzz</a>
  * @see <a href="mailto:silenzzzdev@gmail.com">silenzzz</a>
  */
+@SpringBootTest
+@RequiredArgsConstructor
 class CommandHandlerClassScannerTest {
+
+    private final CommandHandlerClassScanner scanner;
 
     @Test
     void shouldScanCommandHandlerClassesFromPackage() {
-        Collection<CommandHandler> handlers = CommandHandlerClassScanner.getHandlers();
+        Collection<CommandHandler> handlers = scanner.getHandlers();
 
         List<File> handlersClassFiles = CommandHandlerResourceUtils.getCommandHandlersClasses();
 

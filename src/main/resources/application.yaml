@@ -1,0 +1,6 @@
+bot:
+  api-token: ${API_TOKEN}
+
+camel:
+  springboot:
+    main-run-controller: true

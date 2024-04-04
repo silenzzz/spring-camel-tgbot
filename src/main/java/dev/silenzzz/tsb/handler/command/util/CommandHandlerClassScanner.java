@@ -6,10 +6,10 @@ import dev.silenzzz.tsb.handler.command.cor.BaseCommandHandler;
 import dev.silenzzz.tsb.handler.command.cor.CommandHandler;
 import dev.silenzzz.tsb.handler.command.exception.CommandHandlerInstantiationException;
 import dev.silenzzz.tsb.handler.command.util.exception.CommandHandlerClassScannerException;
-import lombok.AccessLevel;
 import lombok.Cleanup;
-import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Component;
 
 import javax.annotation.Nullable;
 import java.io.BufferedReader;
@@ -30,20 +30,17 @@ import java.util.Objects;
  * <p>
  * This class used for discovering command handlers classes in package (in this sample named "dev.silenzzz.tsb.handler.command")
  */
-@NoArgsConstructor(access = AccessLevel.PRIVATE)
+@Component
+@Scope("singleton")
 @Slf4j
-public abstract class CommandHandlerClassScanner {
+public class CommandHandlerClassScanner {
 
     private static final String PACKAGE_NAME = "dev.silenzzz.tsb.handler.command";
 
-    private static Collection<CommandHandler> handlers;
+    private Collection<CommandHandler> handlers;
 
-    static {
-        try {
-            scan();
-        } catch (CommandHandlerClassScannerException e) {
-            throw new ExceptionInInitializerError(e);
-        }
+    public CommandHandlerClassScanner() throws CommandHandlerClassScannerException {
+        this.handlers = scan();
     }
 
     /**
@@ -51,11 +48,11 @@ public abstract class CommandHandlerClassScanner {
      *
      * @return Collection of command handler classes
      */
-    public static Collection<CommandHandler> getHandlers() {
+    public Collection<CommandHandler> getHandlers() {
         return ImmutableList.copyOf(handlers);
     }
 
-    private static void scan() throws CommandHandlerClassScannerException {
+    private Collection<CommandHandler> scan() throws CommandHandlerClassScannerException {
         log.info("Start scanning for command handlers in package: {}", PACKAGE_NAME);
         try (InputStream stream = ClassLoader.getSystemClassLoader()
                 .getResourceAsStream(
@@ -88,7 +85,8 @@ public abstract class CommandHandlerClassScanner {
                     .filter(h -> !(h instanceof UnknownCommandHandler))
                     .forEach(h -> {
                         if (names.size() == 1) { // If only one handler name left in names, where is no next handler for it
-                            h.setNext(findByCommandValue("/")); // So we set UnknownCommandHandler as next handler in chain
+                            CommandHandler unknownCommandHandler = findByCommandValue("/");
+                            h.setNext(unknownCommandHandler); // So we set UnknownCommandHandler as next handler in chain
                             log.info("UnknownCommandHandler was set to next in chain for handler: {}", h.getClass().getSimpleName());
                             return;
                         }
@@ -105,6 +103,7 @@ public abstract class CommandHandlerClassScanner {
 
                         names.remove(nextHandlerName);
                     });
+            return handlers;
         } catch (IOException e) {
             log.error("Command handlers classes scanner exception. Cause: {}, message: {}", e.getCause(), e.getMessage());
             throw new CommandHandlerClassScannerException(e);
@@ -114,7 +113,7 @@ public abstract class CommandHandlerClassScanner {
     }
 
     @SuppressWarnings("OptionalGetWithoutIsPresent")
-    private static CommandHandler findByCommandValue(@Nullable String commandValue) {
+    private CommandHandler findByCommandValue(@Nullable String commandValue) {
         return handlers.stream() // NOSONAR
                 .filter(h -> h.getCommandValue().equals(commandValue))
                 .findFirst()
@@ -122,7 +121,7 @@ public abstract class CommandHandlerClassScanner {
     }
 
     @SuppressWarnings("unchecked")
-    private static Class<? extends BaseCommandHandler> mapClass(String className) throws ClassNotFoundException {
+    private Class<? extends BaseCommandHandler> mapClass(String className) throws ClassNotFoundException {
         try {
             log.info("Mapping command handler class with name: {}", className);
             return (Class<? extends BaseCommandHandler>) Class.forName(
@@ -133,8 +132,7 @@ public abstract class CommandHandlerClassScanner {
         }
     }
 
-    private static CommandHandler buildHandler(Class<? extends CommandHandler> clazz) throws
-            CommandHandlerInstantiationException {
+    private CommandHandler buildHandler(Class<? extends CommandHandler> clazz) throws CommandHandlerInstantiationException {
         try {
             log.info("Building command handler with name: {}", clazz.getSimpleName());
             return (CommandHandler) clazz.getConstructors()[0].newInstance();

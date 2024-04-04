@@ -1,15 +1,21 @@
 package dev.silenzzz.tsb.routes;
 
-import dev.silenzzz.tsb.handler.command.exception.CommandHandlingException;
-import dev.silenzzz.tsb.handler.command.util.CommandHandlersRegistry;
 import dev.silenzzz.tsb.config.BotConfigurationProperties;
+import dev.silenzzz.tsb.handler.command.UnknownCommandHandler;
+import dev.silenzzz.tsb.handler.command.cor.CommandHandler;
+import dev.silenzzz.tsb.handler.command.exception.CommandHandlerNotFoundException;
+import dev.silenzzz.tsb.handler.command.util.CommandHandlersRegistry;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import org.apache.camel.Exchange;
+import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.telegram.model.IncomingMessage;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.client.utils.URIBuilder;
 import org.springframework.stereotype.Component;
+
+import java.util.Optional;
 
 /**
  * @author silenzzz
@@ -25,6 +31,8 @@ public class SampleBotRoute extends RouteBuilder {
 
     private final BotConfigurationProperties properties;
 
+    private final CommandHandlersRegistry registry;
+
     private URIBuilder telegramUri;
 
     /**
@@ -32,7 +40,7 @@ public class SampleBotRoute extends RouteBuilder {
      */
     @PostConstruct
     public void init() {
-        telegramUri = new URIBuilder() // telegr:123
+        telegramUri = new URIBuilder()
                 .setScheme("telegram")
                 .setHost("bots")
                 .addParameter("authorizationToken", properties.getApiToken())
@@ -48,15 +56,17 @@ public class SampleBotRoute extends RouteBuilder {
     @Override
     public void configure() throws Exception {
         // @formatter:off IntelliJ IDEA will reformat custom line breaks in code block with route, if formatter is enabled
-        from("telegram:bots")
+        from(telegramUri.build().toString())
                 .routeId("main-bot-route")
                 .to("log:INFO?showHeaders=true")
                 .log("New message received")
                 .choice()
                     .when(exchange -> {
                         IncomingMessage message = (IncomingMessage) exchange.getIn().getBody();
-                        String text = message.getText();
-                        return !StringUtils.isBlank(text);
+                        if (Optional.ofNullable(message).isPresent()) {
+                            return !StringUtils.isBlank(message.getText());
+                        }
+                        return false;
                     })
                         .to("direct:messageHandler") // NOSONAR
                     .otherwise()
@@ -73,14 +83,7 @@ public class SampleBotRoute extends RouteBuilder {
                 .routeId("Message handler route")
                 //.setBody(body())
                 .log("Processing command")
-                .doTry()
-                    .bean(CommandHandlersRegistry.getCommandHandlerByName(body().convertToString().toString()), "handle")
-                    .log("Command handler found")
-                .doCatch(CommandHandlingException.class)
-                    .to("direct:handlingError")
-                .endDoCatch()
-                .endDoTry()
-                .end()
+                .process(new CommandProcessor())
                 .to("direct:sendMessage");
 
         from("direct:sendMessage")
@@ -95,5 +98,21 @@ public class SampleBotRoute extends RouteBuilder {
 
     private String sendMessageUri() {
         return telegramUri.addParameter("chatId", header("TELEGRAM_CHAT_ID").toString()).toString();
+    }
+
+    private class CommandProcessor implements Processor {
+
+        @Override
+        public void process(Exchange exchange) throws Exception {
+            CommandHandler handler;
+
+            try {
+                handler = registry.getCommandHandlerByName(((IncomingMessage) exchange.getIn().getBody()).getText()); // NOSONAR
+            } catch (CommandHandlerNotFoundException e) {
+                handler = new UnknownCommandHandler();
+            }
+
+            handler.handle(exchange);
+        }
     }
 }
